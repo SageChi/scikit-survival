@@ -21,8 +21,7 @@ environment:
     #   PY_CONDITION: "python >=3.6"
     #   CONDA_INSTALL_LOCN: "C:\\Miniconda36-x64"
 
-# We always use a 64-bit machine, but can build x86 distributions
-# with the TARGET_ARCH variable (which is used by CMD_IN_ENV).
+# We always use a 64-bit machine.
 platform:
 - x64
 
@@ -31,20 +30,26 @@ install:
   - cmd: set "PATH=%CONDA_INSTALL_LOCN%\\Scripts;%CONDA_INSTALL_LOCN%\\Library\\bin;%PATH%"
   - cmd: conda update --yes --quiet conda
   - cmd: set "PATH=%OLDPATH%"
-  - cmd: call %CONDA_INSTALL_LOCN%\Scripts\activate.bat root
+  - cmd: call %CONDA_INSTALL_LOCN%\Scripts\activate.bat
   - cmd: conda config --set always_yes yes
 
+  # Upgrade to the latest version of pip to avoid it displaying warnings
+  # about it being out of date.
+  - cmd: pip install --disable-pip-version-check --user --upgrade pip
+
   # Install the build and runtime dependencies of the project.
-  - conda install "%PY_CONDITION%" numpy=%NUMPY_VERSION% pandas scipy nose coverage
-  - pip install -r requirements.txt
-  - "%CMD_IN_ENV% python setup.py bdist_wheel bdist_wininst"
+  - cmd: conda install "%PY_CONDITION%" numpy=%NUMPY_VERSION% pandas scipy nose
+  - cmd: pip install -r requirements.txt
+  # Create binary packages for the project.
+  - cmd: python setup.py bdist_wheel bdist_wininst
   - ps: "ls dist"
 
   # Install the generated wheel package to test it
-  - "pip install --pre --no-index --find-links dist/ scikit-survival"
+  - cmd: pip install --pre --no-index --find-links dist/ scikit-survival
+  - cmd: rmdir sksurv /s /q
 
 test_script:
-  - cmd: python -c \"import sksurv\"
+  - cmd: nosetests -w tests -a "!slow" -e "test_breast_cancer_rbf_cvxopt$"
 
 artifacts:
   # Archive the generated wheel package in the ci.appveyor.com build report.
